@@ -152,15 +152,19 @@ class ParallelSCP:
         if file_size <= self.chunk_size or file_size == 0:
             return await self.session.download_file(remote_path, str(local_file))
 
-        # Try to use remote split (portable attempt)
-        use_split = True
+        # Try to use remote split (portable attempt). Fall back if unavailable.
+        use_split = False
         try:
-            # Test if split works
-            test_cmd = f"which split >/dev/null && split --version 2>/dev/null | head -1 || echo no-split"
+            test_cmd = (
+                "which split >/dev/null 2>&1 && "
+                "split --version 2>/dev/null | head -1 || echo no-split"
+            )
             test_res = await self.session.execute(test_cmd)
-            if "no-split" in test_res.get("stdout", "") or "GNU coreutils" not in test_res.get("stdout", ""):
-                # Try anyway or fallback
-                pass
+            stdout = test_res.get("stdout", "") or ""
+            if "no-split" not in stdout and (
+                "GNU coreutils" in stdout or "split" in stdout.lower()
+            ):
+                use_split = True
         except Exception:
             use_split = False
 

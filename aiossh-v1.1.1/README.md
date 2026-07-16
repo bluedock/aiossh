@@ -1,16 +1,16 @@
-# AIOSSH v1.1.0
+# AIOSSH v1.1.1
 
 AIOSSH is an asynchronous SSH client library for Python built on `asyncssh`.
 
 It includes connection pooling, encrypted session storage, input validation, tunneling support, parallel file transfers, session recording, Docker exec, and webhook notifications.
 
-Changes in v1.1.0:
-- Added Windows compatibility for privileged port validation
-- Implemented minimum idle connection support in the pool
-- Added timeout protection for streaming commands
-- Improved portability of parallel file transfers
-- Expanded module coverage for better import compatibility
-- Updated documentation and examples
+Changes in v1.1.1 (bugfix release):
+- Fixed `command=` kwarg crash on command exceptions
+- Real resume support for downloads (manual SFTP byte-range)
+- Session recorder works with stdlib json (no orjson required)
+- Pooled connections are properly returned on close
+- Correct fallback when remote `split` is missing
+- Webhooks use proper aiohttp ClientTimeout
 
 ---
 

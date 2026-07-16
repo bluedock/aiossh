@@ -5,7 +5,6 @@ Webhook Module - v1.1.0
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 from typing import Any, Callable, Optional
 
 try:
@@ -43,11 +42,18 @@ class WebhookManager:
                 pass
 
         if aiohttp and event in self._webhooks:
-            payload = json_module.dumps(data)
+            raw = json_module.dumps(data)
+            payload = raw if isinstance(raw, (bytes, bytearray)) else raw.encode("utf-8")
+            timeout = aiohttp.ClientTimeout(total=5)
             for url in self._webhooks[event]:
                 try:
                     async with aiohttp.ClientSession() as session:
-                        await session.post(url, data=payload, headers={"Content-Type": "application/json"}, timeout=5)
+                        await session.post(
+                            url,
+                            data=payload,
+                            headers={"Content-Type": "application/json"},
+                            timeout=timeout,
+                        )
                 except Exception:
                     pass
 
@@ -63,8 +69,9 @@ class DiscordWebhook:
         if embed:
             payload["embeds"] = [embed]
         try:
+            timeout = aiohttp.ClientTimeout(total=5)
             async with aiohttp.ClientSession() as session:
-                async with session.post(self.url, json=payload, timeout=5) as resp:
+                async with session.post(self.url, json=payload, timeout=timeout) as resp:
                     return resp.status == 204
         except Exception:
             return False
@@ -79,8 +86,13 @@ class TelegramWebhook:
         if not aiohttp:
             return False
         try:
+            timeout = aiohttp.ClientTimeout(total=5)
             async with aiohttp.ClientSession() as session:
-                async with session.post(self.api, json={"chat_id": self.chat_id, "text": message}, timeout=5) as resp:
+                async with session.post(
+                    self.api,
+                    json={"chat_id": self.chat_id, "text": message},
+                    timeout=timeout,
+                ) as resp:
                     return resp.status == 200
         except Exception:
             return False

@@ -13,8 +13,20 @@ from typing import Any, Callable, Optional
 
 try:
     import orjson as json_module
+
+    def _json_dumps(obj: Any) -> bytes:
+        return json_module.dumps(obj)
+
+    def _json_loads(data: bytes) -> Any:
+        return json_module.loads(data)
 except ImportError:
     import json as json_module
+
+    def _json_dumps(obj: Any) -> bytes:
+        return json_module.dumps(obj, separators=(",", ":")).encode("utf-8")
+
+    def _json_loads(data: bytes) -> Any:
+        return json_module.loads(data.decode("utf-8"))
 
 
 class SessionRecorder:
@@ -53,10 +65,10 @@ class SessionRecorder:
     async def save(self, compress: bool = True) -> str:
         filename = f"{self.session_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.iossh"
         filepath = self.storage_dir / filename
-        data = json_module.dumps({
+        data = _json_dumps({
             "session_id": self.session_id,
             "started_at": datetime.fromtimestamp(self._started_at or 0, tz=timezone.utc).isoformat(),
-            "events": self._events
+            "events": self._events,
         })
         if compress:
             filepath = filepath.with_suffix(".iossh.gz")
@@ -81,7 +93,7 @@ class SessionReplayer:
         else:
             with open(self.filepath, "rb") as f:
                 data = f.read()
-        recording = json_module.loads(data)
+        recording = _json_loads(data)
         self._events = recording.get("events", [])
         self._loaded = True
 

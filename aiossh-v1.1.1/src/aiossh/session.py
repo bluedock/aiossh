@@ -356,22 +356,49 @@ class FastSSHSession:
                     stat = await sftp.stat(remote_path)
                     remote_size = stat.size or 0
                 except asyncssh.SFTPError as e:
-                    raise AIOSSHFileTransferNotFoundError(f"Remote file not found: {remote_path}", code="REMOTE_NOT_FOUND", cause=e) from e
+                    raise AIOSSHFileTransferNotFoundError(
+                        f"Remote file not found: {remote_path}",
+                        code="REMOTE_NOT_FOUND",
+                        cause=e,
+                    ) from e
 
                 offset = 0
                 if resume and local_file.exists():
                     offset = local_file.stat().st_size
                     if offset >= remote_size:
-                        return {"success": True, "message": "File already fully downloaded", "file_size": remote_size}
+                        return {
+                            "success": True,
+                            "message": "File already fully downloaded",
+                            "file_size": remote_size,
+                            "resumed": True,
+                        }
 
                 start_time = time.monotonic()
-                await sftp.get(remote_path, str(local_file), resume_offset=offset)
+
+                if offset > 0:
+                    # Manual resume: asyncssh SFTPClient.get() has no resume_offset.
+                    # Open remote file at offset and append remaining bytes locally.
+                    async with sftp.open(remote_path, "rb") as remote_f:
+                        await remote_f.seek(offset)
+                        with open(local_file, "ab") as local_f:
+                            while True:
+                                chunk = await remote_f.read(1024 * 1024)  # 1 MiB
+                                if not chunk:
+                                    break
+                                local_f.write(chunk)
+                else:
+                    await sftp.get(remote_path, str(local_file))
+
                 elapsed = time.monotonic() - start_time
-                self._stats["bytes_transferred"] += remote_size
+                transferred = remote_size - offset if offset > 0 else remote_size
+                self._stats["bytes_transferred"] += transferred
                 return {
-                    "success": True, "remote_path": remote_path, "local_path": str(local_file),
-                    "file_size": remote_size, "transfer_time": round(elapsed, 3),
-                    "speed_mbps": round((remote_size / 1_000_000) / elapsed, 3) if elapsed > 0 else 0.0,
+                    "success": True,
+                    "remote_path": remote_path,
+                    "local_path": str(local_file),
+                    "file_size": remote_size,
+                    "transfer_time": round(elapsed, 3),
+                    "speed_mbps": round((transferred / 1_000_000) / elapsed, 3) if elapsed > 0 else 0.0,
                     "resumed": offset > 0,
                 }
         except AIOSSHFileTransferNotFoundError:

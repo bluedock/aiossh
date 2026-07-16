@@ -2,6 +2,19 @@
 
 All notable changes to AIOSSH will be documented in this file.
 
+## [1.1.1] - 2026-07-16
+
+### Fixed
+- **Critical**: `AIOSSHCommandError` / `AIOSSHCommandTimeoutError` now accept the `command=` keyword (previously raised `TypeError`)
+- **Critical**: Resume support in `download_file` — removed non-existent `resume_offset=` kwarg to `asyncssh`; implemented real byte-range resume via `sftp.open` + seek/append
+- **Critical**: `SessionRecorder.save` no longer writes `str` to binary files when `orjson` is absent (stdlib `json` fallback now always produces `bytes`)
+- Connection pool: `close_session` / `close_all` now correctly call `return_connection` so pooled sessions are reused instead of being hard-closed and leaked
+- Dead / inverted `split` detection logic in `ParallelSCP.download` (now correctly falls back when GNU `split` is unavailable)
+- Webhook HTTP calls use proper `aiohttp.ClientTimeout` instead of bare `timeout=5` integer
+
+### Changed
+- Minor cleanup of unused imports
+
 ## [1.1.0] - 2026-07-16
 
 ### Fixed
