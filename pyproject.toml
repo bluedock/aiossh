@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiossh"
-version = "1.1.0"
+version = "1.1.1"
 description = "Professional async SSH client with pooling, tunneling, encrypted sessions, parallel transfers, recording, and strong security. v1.1.0 - All bugs fixed."
 readme = "README.md"
 requires-python = ">=3.11"

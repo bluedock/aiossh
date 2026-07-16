@@ -8,8 +8,7 @@ AIOSSH class with connection pooling, rate limiting, and session management.
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Optional, Self, Union
+from typing import Any, Optional, Self, Union
 
 from .pool import ConnectionPool, PoolConfig
 from .security import AuditLogger, RateLimiter, SecurityConfig
@@ -50,6 +49,9 @@ class AIOSSH:
         self._conn_rate_limiter = RateLimiter(max_requests=30, window_seconds=60)
         self._cmd_rate_limiter = RateLimiter(max_requests=50, window_seconds=1)
         self._active_sessions: dict[str, FastSSHSession] = {}
+        # Track sessions obtained from the pool so we can return them instead of hard-closing.
+        # Maps session id() → (session, config)
+        self._pooled_sessions: dict[int, tuple[FastSSHSession, SSHConfig]] = {}
         self._lock = asyncio.Lock()
         self._closed = False
 
@@ -89,9 +91,11 @@ class AIOSSH:
             security=self._security_config
         )
 
+        from_pool = False
         if use_pool:
             try:
                 session = await self._pool.get_connection(config)
+                from_pool = True
             except Exception:
                 session = FastSSHSession(config)
                 await session.connect()
@@ -99,8 +103,10 @@ class AIOSSH:
             session = FastSSHSession(config)
             await session.connect()
 
-        if session_name:
-            async with self._lock:
+        async with self._lock:
+            if from_pool:
+                self._pooled_sessions[id(session)] = (session, config)
+            if session_name:
                 self._active_sessions[session_name] = session
         return session
 
@@ -139,7 +145,24 @@ class AIOSSH:
                     if v is session:
                         del self._active_sessions[k]
                         break
-        if session:
+            pooled_entry = None
+            if session is not None:
+                pooled_entry = self._pooled_sessions.pop(id(session), None)
+
+        if session is None:
+            return
+
+        if pooled_entry is not None:
+            # Return to pool for reuse instead of destroying the connection.
+            _, config = pooled_entry
+            try:
+                await self._pool.return_connection(config, session)
+            except Exception:
+                try:
+                    await session.close()
+                except Exception:
+                    pass
+        else:
             await session.close()
 
     async def close_all(self) -> None:
@@ -147,13 +170,31 @@ class AIOSSH:
             return
         self._closed = True
         async with self._lock:
-            sessions = list(self._active_sessions.values())
+            named_sessions = list(self._active_sessions.values())
             self._active_sessions.clear()
-        for s in sessions:
+            pooled_entries = list(self._pooled_sessions.values())
+            self._pooled_sessions.clear()
+
+        # Return every pooled session (whether it was named or not)
+        returned_ids: set[int] = set()
+        for session, config in pooled_entries:
+            returned_ids.add(id(session))
             try:
-                await s.close()
+                await self._pool.return_connection(config, session)
             except Exception:
-                pass
+                try:
+                    await session.close()
+                except Exception:
+                    pass
+
+        # Hard-close any remaining non-pooled named sessions
+        for s in named_sessions:
+            if id(s) not in returned_ids:
+                try:
+                    await s.close()
+                except Exception:
+                    pass
+
         await self._pool.close()
 
     async def _resolve_session(self, sid: Union[str, FastSSHSession]) -> FastSSHSession:

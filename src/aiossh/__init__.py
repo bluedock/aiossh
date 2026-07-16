@@ -6,7 +6,7 @@ Asynchronous SSH client library for Python.
 
 from __future__ import annotations
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 _lazy_imports = {
     "AIOSSH": (".core", "AIOSSH"),

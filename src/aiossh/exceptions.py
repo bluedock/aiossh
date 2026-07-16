@@ -69,11 +69,41 @@ class AIOSSHSessionNotFoundError(AIOSSHSessionError):
 
 
 class AIOSSHCommandError(AIOSSHException):
-    pass
+    """Raised when an SSH command fails or times out.
+
+    Accepts an optional ``command`` keyword that is stored in ``details``
+    for easier debugging / logging.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "CMD_ERROR",
+        details: Optional[dict[str, Any]] = None,
+        cause: Optional[BaseException] = None,
+        command: Optional[str] = None,
+    ) -> None:
+        details = dict(details or {})
+        if command is not None:
+            details.setdefault("command", command)
+        super().__init__(message, code=code, details=details, cause=cause)
+        self.command = command
 
 
 class AIOSSHCommandTimeoutError(AIOSSHCommandError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "CMD_TIMEOUT",
+        details: Optional[dict[str, Any]] = None,
+        cause: Optional[BaseException] = None,
+        command: Optional[str] = None,
+    ) -> None:
+        super().__init__(
+            message, code=code, details=details, cause=cause, command=command
+        )
 
 
 class AIOSSHFileTransferError(AIOSSHException):
