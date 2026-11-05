@@ -7,6 +7,7 @@ Useful for compliance, debugging, and training new engineers.
 """
 
 import asyncio
+
 from aiossh import AIOSSH, SessionRecorder, SessionReplayer
 
 
@@ -55,9 +56,8 @@ async def main():
         def replay_callback(event_type, data):
             if event_type == "command":
                 print(f"  $ {data['command']}")
-            elif event_type == "result":
-                if data.get("stdout"):
-                    print(f"     → {data['stdout'][:80]}...")
+            elif event_type == "result" and data.get("stdout"):
+                print(f"     → {data['stdout'][:80]}...")
 
         await replayer.replay(speed=3.0, callback=replay_callback)
 

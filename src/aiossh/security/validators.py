@@ -9,11 +9,8 @@ Includes SSRF protection, injection prevention, and path traversal blocking.
 from __future__ import annotations
 
 import ipaddress
-import os
 import re
 import shlex
-from pathlib import Path
-from typing import Union
 
 from ..exceptions import AIOSSHInvalidParameterError, AIOSSHSecurityError
 
@@ -123,8 +120,8 @@ class InputValidator:
 
             if not allow_private:
                 if isinstance(ip, ipaddress.IPv4Address):
-                    for network in cls._PRIVATE_IPV4_NETWORKS:
-                        if ip in network:
+                    for net4 in cls._PRIVATE_IPV4_NETWORKS:
+                        if ip in net4:
                             raise AIOSSHInvalidParameterError(
                                 f"Private/reserved IPv4 address not allowed: {host} "
                                 "(use allow_private=True for internal networks)",
@@ -132,8 +129,8 @@ class InputValidator:
                                 details={"host": host},
                             )
                 elif isinstance(ip, ipaddress.IPv6Address):
-                    for network in cls._PRIVATE_IPV6_NETWORKS:
-                        if ip in network:
+                    for net6 in cls._PRIVATE_IPV6_NETWORKS:
+                        if ip in net6:
                             raise AIOSSHInvalidParameterError(
                                 f"Private/reserved IPv6 address not allowed: {host}",
                                 code="PRIVATE_IP_BLOCKED",
@@ -157,7 +154,7 @@ class InputValidator:
     # ── Port Validation ──────────────────────────────────────────────────
 
     @classmethod
-    def validate_port(cls, port: Union[int, str]) -> int:
+    def validate_port(cls, port: int | str) -> int:
         """Validate a port number.
 
         Args:

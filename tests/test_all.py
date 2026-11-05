@@ -6,7 +6,6 @@ fake asyncssh module (tests/fakes.py + mocks/asyncssh) stands in for the
 real SSH transport. `cryptography` is the real library (installed), so
 file_manager.py's encryption path is exercised for real.
 """
-import asyncio
 import os
 import shlex
 import sys
@@ -22,18 +21,21 @@ sys.path.insert(0, str(HERE.parent / "src"))         # real aiossh package
 import asyncssh  # the fake
 from fakes import FakeConnection, FakeSFTP
 
-from aiossh.security.validators import InputValidator
-from aiossh.exceptions import (
-    AIOSSHInvalidParameterError, AIOSSHSecurityError, AIOSSHPoolExhaustedError,
-    AIOSSHCommandTimeoutError, AIOSSHFileDiskFullError, AIOSSHFileDownloadError,
-)
-from aiossh.core.session import FastSSHSession, SSHConfig
+from aiossh.core import AIOSSH
 from aiossh.core.pool import ConnectionPool, PoolConfig
+from aiossh.core.session import FastSSHSession, SSHConfig
+from aiossh.exceptions import (
+    AIOSSHCommandTimeoutError,
+    AIOSSHFileDiskFullError,
+    AIOSSHInvalidParameterError,
+    AIOSSHPoolExhaustedError,
+    AIOSSHSecurityError,
+)
+from aiossh.integrations.docker import DockerExecSession
 from aiossh.security import RateLimiter, SecurityConfig
 from aiossh.security.file_manager import SessionFileManager
-from aiossh.integrations.docker import DockerExecSession
+from aiossh.security.validators import InputValidator
 from aiossh.transfer.scp import ParallelSCP
-from aiossh.core import AIOSSH
 
 
 def make_session(conn: FakeConnection) -> FastSSHSession:
@@ -169,7 +171,7 @@ class TestConnectionPool(unittest.IsolatedAsyncioTestCase):
 
         fake_conn = FakeConnection()
         with patch("asyncssh.connect", new=AsyncMock(return_value=fake_conn)):
-            s1 = await pool.get_connection(cfg)  # fills the pool (max=1)
+            await pool.get_connection(cfg)  # fills the pool (max=1)
             with self.assertRaises(AIOSSHPoolExhaustedError):
                 await pool.get_connection(cfg)  # regression check: must NOT silently open a new one
 

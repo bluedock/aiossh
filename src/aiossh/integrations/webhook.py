@@ -4,19 +4,23 @@ Webhook Module - v1.1.0
 
 from __future__ import annotations
 
-import asyncio
 import inspect
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 try:
     import aiohttp
 except ImportError:
-    aiohttp = None
+    aiohttp = None  # type: ignore[assignment]
 
 try:
-    import orjson as json_module
+    import orjson as _orjson
+    def _json_dumps(data): return _orjson.dumps(data)
+    def _json_loads(data): return _orjson.loads(data)
 except ImportError:
-    import json as json_module
+    import json as _json
+    def _json_dumps(data): return _json.dumps(data).encode()
+    def _json_loads(data): return _json.loads(data.decode())
 
 
 class WebhookManager:
@@ -43,7 +47,7 @@ class WebhookManager:
                 pass
 
         if aiohttp and event in self._webhooks:
-            payload = json_module.dumps(data)
+            payload = _json_dumps(data)
             for url in self._webhooks[event]:
                 try:
                     async with aiohttp.ClientSession() as session:
@@ -56,10 +60,10 @@ class DiscordWebhook:
     def __init__(self, webhook_url: str):
         self.url = webhook_url
 
-    async def send(self, message: str, embed: Optional[dict] = None) -> bool:
+    async def send(self, message: str, embed: dict | None = None) -> bool:
         if not aiohttp:
             return False
-        payload = {"content": message}
+        payload: dict[str, Any] = {"content": message}
         if embed:
             payload["embeds"] = [embed]
         try:

@@ -9,8 +9,8 @@ leaving the real key (and plaintext credentials) un-wiped in memory.
 import tempfile
 import unittest
 
-from aiossh.security.file_manager import SessionFileManager
 from aiossh.security import SecureMemory
+from aiossh.security.file_manager import SessionFileManager
 
 
 class SecureMemoryTest(unittest.TestCase):

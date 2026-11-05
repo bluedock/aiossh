@@ -7,9 +7,9 @@ from __future__ import annotations
 import asyncio
 import gzip
 import time
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Optional
 
 from ..security.validators import InputValidator
 
@@ -42,7 +42,7 @@ class SessionRecorder:
         self.storage_dir = Path(storage_dir).expanduser()
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self._events: list[dict] = []
-        self._started_at: Optional[float] = None
+        self._started_at: float | None = None
         self._recording = False
 
     def start(self):
@@ -70,11 +70,11 @@ class SessionRecorder:
         self._recording = False
 
     async def save(self, compress: bool = True) -> str:
-        filename = f"{self.session_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.iossh"
+        filename = f"{self.session_id}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.iossh"
         filepath = self.storage_dir / filename
         data = _dumps_bytes({
             "session_id": self.session_id,
-            "started_at": datetime.fromtimestamp(self._started_at or 0, tz=timezone.utc).isoformat(),
+            "started_at": datetime.fromtimestamp(self._started_at or 0, tz=UTC).isoformat(),
             "events": self._events
         })
         if compress:
@@ -104,7 +104,7 @@ class SessionReplayer:
         self._events = recording.get("events", [])
         self._loaded = True
 
-    async def replay(self, speed: float = 1.0, callback: Optional[Callable] = None):
+    async def replay(self, speed: float = 1.0, callback: Callable | None = None):
         if not self._loaded:
             await self.load()
         last_ts = 0.0

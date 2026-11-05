@@ -11,9 +11,10 @@ import asyncio
 import os
 import shlex
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Callable, Any
+from typing import Any
 
 from ..exceptions import AIOSSHFileDownloadError
 from ..security.validators import InputValidator
@@ -41,7 +42,7 @@ class ParallelSCP:
         self.session = session
         self.chunk_size = chunk_size
         self.max_parallel = max_parallel
-        self._progress_callback: Optional[Callable[[TransferProgress], None]] = None
+        self._progress_callback: Callable[[TransferProgress], None] | None = None
 
     def on_progress(self, callback: Callable[[TransferProgress], None]) -> None:
         self._progress_callback = callback

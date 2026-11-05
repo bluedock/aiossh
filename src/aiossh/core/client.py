@@ -8,13 +8,8 @@ AIOSSH class with connection pooling, rate limiting, and session management.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional, Self, Union
+from typing import Any, Self
 
-from .pool import ConnectionPool, PoolConfig
-from ..security import AuditLogger, RateLimiter, SecurityConfig
-from .session import FastSSHSession, SSHConfig
-from ..security.validators import InputValidator
-from ..security.file_manager import SessionFileManager  # type: ignore
 from ..exceptions import (
     AIOSSHConfigurationError,
     AIOSSHInvalidParameterError,
@@ -22,6 +17,11 @@ from ..exceptions import (
     AIOSSHRateLimitError,
     AIOSSHSessionError,
 )
+from ..security import AuditLogger, RateLimiter, SecurityConfig
+from ..security.file_manager import SessionFileManager  # type: ignore
+from ..security.validators import InputValidator
+from .pool import ConnectionPool, PoolConfig
+from .session import FastSSHSession, SSHConfig
 
 
 class AIOSSH:
@@ -30,9 +30,9 @@ class AIOSSH:
     def __init__(
         self,
         *,
-        master_password: Optional[str] = None,
-        security_config: Optional[SecurityConfig] = None,
-        pool_config: Optional[PoolConfig] = None,
+        master_password: str | None = None,
+        security_config: SecurityConfig | None = None,
+        pool_config: PoolConfig | None = None,
         session_dir: str = "~/.aiossh/sessions",
         enable_audit: bool = True,
     ) -> None:
@@ -69,10 +69,10 @@ class AIOSSH:
         host: str,
         username: str,
         *,
-        password: Optional[str] = None,
+        password: str | None = None,
         port: int = 22,
-        private_key_path: Optional[str] = None,
-        session_name: Optional[str] = None,
+        private_key_path: str | None = None,
+        session_name: str | None = None,
         use_pool: bool = True,
         timeout: int = 30,
     ) -> FastSSHSession:
@@ -120,7 +120,7 @@ class AIOSSH:
 
     async def execute_command(
         self,
-        session_id: Union[str, FastSSHSession],
+        session_id: str | FastSSHSession,
         command: str,
         *,
         timeout: int = 30,
@@ -145,7 +145,7 @@ class AIOSSH:
                 results[name] = {"error": str(e), "success": False}
         return results
 
-    async def close_session(self, session_id: Union[str, FastSSHSession]) -> None:
+    async def close_session(self, session_id: str | FastSSHSession) -> None:
         async with self._lock:
             if isinstance(session_id, str):
                 session = self._active_sessions.pop(session_id, None)
@@ -176,7 +176,7 @@ class AIOSSH:
         await self._pool.close()
 
     async def _release_session(
-        self, session: FastSSHSession, pool_config: Optional[SSHConfig]
+        self, session: FastSSHSession, pool_config: SSHConfig | None
     ) -> None:
         """Release a session: return it to the pool if it came from there,
         otherwise close it outright."""
@@ -191,7 +191,7 @@ class AIOSSH:
         except Exception:
             pass
 
-    async def _resolve_session(self, sid: Union[str, FastSSHSession]) -> FastSSHSession:
+    async def _resolve_session(self, sid: str | FastSSHSession) -> FastSSHSession:
         if isinstance(sid, FastSSHSession):
             return sid
         async with self._lock:

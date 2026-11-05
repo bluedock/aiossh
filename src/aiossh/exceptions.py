@@ -6,8 +6,8 @@ Comprehensive, specific exception hierarchy for precise error handling.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
 class AIOSSHException(Exception):
@@ -18,15 +18,15 @@ class AIOSSHException(Exception):
         message: str,
         *,
         code: str = "GENERIC_ERROR",
-        details: Optional[dict[str, Any]] = None,
-        cause: Optional[BaseException] = None,
+        details: dict[str, Any] | None = None,
+        cause: BaseException | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.code = code
         self.details = details or {}
         self.cause = cause
-        self.timestamp = datetime.now(timezone.utc).isoformat()
+        self.timestamp = datetime.now(UTC).isoformat()
 
     def __str__(self) -> str:
         return f"[{self.code}] {self.message}"
@@ -81,9 +81,9 @@ class AIOSSHCommandError(AIOSSHException):
         message: str,
         *,
         code: str = "GENERIC_ERROR",
-        details: Optional[dict[str, Any]] = None,
-        cause: Optional[BaseException] = None,
-        command: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        cause: BaseException | None = None,
+        command: str | None = None,
     ) -> None:
         details = dict(details or {})
         if command is not None:

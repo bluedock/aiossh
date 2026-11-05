@@ -4,9 +4,9 @@ Proxy and Tunneling Module - v1.1.0
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Optional, AsyncIterator
 
 # SSHListener is part of asyncssh's public API but is not guaranteed to be
 # exported at the top level in every build/version.  Import it defensively so
@@ -66,7 +66,7 @@ class SSHTunnelManager:
 
 
 @asynccontextmanager
-async def create_tunnel(connection: SSHClientConnection, config: Optional[ProxyConfig] = None) -> AsyncIterator[SSHTunnelManager]:
+async def create_tunnel(connection: SSHClientConnection, config: ProxyConfig | None = None) -> AsyncIterator[SSHTunnelManager]:
     tunnel = SSHTunnelManager(connection)
     config = config or ProxyConfig()
     try:

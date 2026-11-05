@@ -7,6 +7,7 @@ Provides just enough surface area (exception types + a monkeypatchable
 against fully in-memory fake connections.
 """
 from __future__ import annotations
+
 import asyncio
 
 
@@ -37,7 +38,6 @@ class SSHCompletedProcess:
 
 class SSHClientConnection:
     """Overridden per-test via FakeConnection subclasses."""
-    pass
 
 
 class SSHListener:

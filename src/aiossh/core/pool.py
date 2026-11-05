@@ -12,7 +12,6 @@ import asyncio
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Optional
 
 from ..exceptions import AIOSSHPoolExhaustedError
 from ..security import RateLimiter
@@ -57,7 +56,7 @@ class PoolConfig:
 class _PoolEntry:
     """Internal pool entry tracking connection state."""
 
-    __slots__ = ("connection", "created_at", "last_used", "in_use")
+    __slots__ = ("connection", "created_at", "in_use", "last_used")
 
     def __init__(self, connection: FastSSHSession) -> None:
         self.connection = connection
@@ -74,14 +73,14 @@ class ConnectionPool:
     a minimum warm pool of idle connections.
     """
 
-    def __init__(self, config: Optional[PoolConfig] = None) -> None:
+    def __init__(self, config: PoolConfig | None = None) -> None:
         self._config = config or PoolConfig()
         self._pools: OrderedDict[str, list[_PoolEntry]] = OrderedDict()
         self._total_connections = 0
         self._idle_connections = 0
         self._lock = asyncio.Lock()
         self._connection_available = asyncio.Condition(self._lock)
-        self._cleanup_task: Optional[asyncio.Task[None]] = None
+        self._cleanup_task: asyncio.Task[None] | None = None
         self._rate_limiter = RateLimiter(
             max_requests=self._config.max_connections * 2,
             window_seconds=1.0,
@@ -93,7 +92,7 @@ class ConnectionPool:
         if self._cleanup_task is None:
             self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
 
-    async def ensure_min_connections(self, sample_config: Optional[SSHConfig] = None) -> None:
+    async def ensure_min_connections(self, sample_config: SSHConfig | None = None) -> None:
         """Ensure at least min_connections idle connections exist (if sample_config provided).
         
         This is best-effort and lazy. Call after start() if you want warm pool.
@@ -289,9 +288,7 @@ class ConnectionPool:
             return True
         if not entry.in_use and (now - entry.last_used) > self._config.max_idle_time:
             return True
-        if (now - entry.created_at) > self._config.max_lifetime:
-            return True
-        return False
+        return now - entry.created_at > self._config.max_lifetime
 
     async def close(self) -> None:
         """Close all connections and stop the pool."""

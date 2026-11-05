@@ -11,10 +11,11 @@ from __future__ import annotations
 import asyncio
 import socket
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import AsyncIterator, Callable, Optional, Self
+from typing import Self
 
 import asyncssh
 from asyncssh import SSHClientConnection, SSHCompletedProcess
@@ -44,8 +45,8 @@ class SSHConfig:
     host: str
     username: str
     port: int = 22
-    password: Optional[str] = None
-    private_key_path: Optional[str] = None
+    password: str | None = None
+    private_key_path: str | None = None
     timeout: int = 30
     keepalive_interval: int = 30
     security: SecurityConfig = field(default_factory=SecurityConfig)
@@ -57,12 +58,12 @@ class SSHConfig:
     # (the default) to disable host-key checking, or supply a proper asyncssh-
     # compatible known_hosts source.  For custom validation logic, subclass
     # asyncssh.SSHClient and override validate_host_public_key().
-    host_key_callback: Optional[object] = None
+    host_key_callback: object | None = None
     # proxy: for jump-host / tunnel support pass an existing
     # asyncssh.SSHClientConnection.  asyncssh has no `proxy` string parameter;
     # string values stored here are ignored.  Use SSHTunnelManager for jump
     # hosts when you need to create the tunnel connection first.
-    proxy: Optional[object] = None
+    proxy: object | None = None
 
     def validate(self) -> None:
         InputValidator.validate_host(self.host)
@@ -80,9 +81,9 @@ class FastSSHSession:
     def __init__(self, config: SSHConfig) -> None:
         config.validate()
         self.config = config
-        self._connection: Optional[SSHClientConnection] = None
-        self._created_at: Optional[datetime] = None
-        self._last_used: Optional[datetime] = None
+        self._connection: SSHClientConnection | None = None
+        self._created_at: datetime | None = None
+        self._last_used: datetime | None = None
         self._closed: bool = False
         self._command_semaphore = asyncio.Semaphore(10)
         self._audit = AuditLogger()
@@ -104,7 +105,7 @@ class FastSSHSession:
         return not self._connection.is_closed()
 
     @property
-    def connection(self) -> Optional["SSHClientConnection"]:
+    def connection(self) -> SSHClientConnection | None:
         """Underlying asyncssh connection (for advanced tunneling use)."""
         return self._connection
 
@@ -116,7 +117,7 @@ class FastSSHSession:
     def stats(self) -> dict[str, object]:
         uptime = 0.0
         if self._created_at is not None:
-            uptime = (datetime.now(timezone.utc) - self._created_at).total_seconds()
+            uptime = (datetime.now(UTC) - self._created_at).total_seconds()
         return {
             **self._stats,
             "connected": self.is_connected,
@@ -203,14 +204,14 @@ class FastSSHSession:
                     asyncssh.connect(**connect_kwargs),  # type: ignore[arg-type]
                     timeout=self.config.timeout,
                 )
-                self._created_at = datetime.now(timezone.utc)
-                self._last_used = datetime.now(timezone.utc)
+                self._created_at = datetime.now(UTC)
+                self._last_used = datetime.now(UTC)
 
                 await self._audit.log(
                     "session_connect",
                     {"host": self.config.host, "username": self.config.username, "port": self.config.port},
                 )
-            except asyncio.TimeoutError as e:
+            except TimeoutError as e:
                 raise AIOSSHConnectionTimeoutError(
                     f"Connection timed out after {self.config.timeout}s",
                     code="TIMEOUT", details={"host": self.config.host}, cause=e
@@ -285,10 +286,10 @@ class FastSSHSession:
                     self._connection.run(command, check=False), timeout=timeout  # type: ignore[union-attr]
                 )
                 execution_time = time.monotonic() - start_time
-                self._last_used = datetime.now(timezone.utc)
+                self._last_used = datetime.now(UTC)
                 self._stats["commands_executed"] += 1
 
-                exit_code: Optional[int] = None
+                exit_code: int | None = None
                 try:
                     if result.exit_status is not None:
                         exit_code = int(result.exit_status)
@@ -306,7 +307,7 @@ class FastSSHSession:
                     "execution_time": round(execution_time, 6),
                     "truncated": getattr(result, "stdout_was_truncated", False) or getattr(result, "stderr_was_truncated", False),
                 }
-            except asyncio.TimeoutError as e:
+            except TimeoutError as e:
                 self._stats["errors"] += 1
                 raise AIOSSHCommandTimeoutError(
                     f"Command timed out after {timeout}s", code="CMD_TIMEOUT",
@@ -440,7 +441,7 @@ class FastSSHSession:
                                 chunk = await remote_file.read(chunk_size)
                                 if not chunk:
                                     break
-                                local_f.write(chunk)
+                                local_f.write(chunk if isinstance(chunk, bytes) else chunk.encode())
                 else:
                     await sftp.get(remote_path, str(local_file))
                 elapsed = time.monotonic() - start_time
@@ -470,7 +471,7 @@ class FastSSHSession:
                 async with self._connection.create_process(command) as process:  # type: ignore[union-attr]
                     async for line in process.stdout:
                         yield line.rstrip("\n")
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise AIOSSHCommandTimeoutError(
                 f"Stream command timed out after {timeout}s", code="STREAM_TIMEOUT",
                 command=command[:200], cause=e
@@ -488,7 +489,7 @@ class FastSSHSession:
                     if not self._connection.is_closed():
                         self._connection.close()
                         await asyncio.wait_for(self._connection.wait_closed(), timeout=5.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     try:
                         self._connection.abort()
                     except Exception:

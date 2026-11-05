@@ -28,13 +28,13 @@ from .config import SecureMemory
 from .validators import InputValidator
 
 try:
-    import orjson as json_module
-    def _json_dumps(data): return json_module.dumps(data)
-    def _json_loads(data): return json_module.loads(data)
+    import orjson as _orjson
+    def _json_dumps(data): return _orjson.dumps(data)
+    def _json_loads(data): return _orjson.loads(data)
 except ImportError:
-    import json as json_module
-    def _json_dumps(data): return json_module.dumps(data, separators=(",", ":")).encode()
-    def _json_loads(data): return json_module.loads(data.decode())
+    import json as _json
+    def _json_dumps(data): return _json.dumps(data, separators=(",", ":")).encode()
+    def _json_loads(data): return _json.loads(data.decode())
 
 
 class SessionFileManager:

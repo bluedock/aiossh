@@ -7,6 +7,7 @@ Demonstrates ParallelSCP for very fast uploads/downloads of large files.
 
 import asyncio
 from pathlib import Path
+
 from aiossh import AIOSSH, ParallelSCP
 
 
@@ -53,7 +54,7 @@ async def main():
         print(f"   Chunks: {result['chunks']}")
 
         # === Download Example ===
-        print(f"\nDownloading back...")
+        print("\nDownloading back...")
         download_result = await scp.download(remote_file, "/tmp/downloaded-back.bin")
 
         print("\nDownload finished!")

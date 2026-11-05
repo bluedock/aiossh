@@ -7,6 +7,7 @@ Perfect for accessing internal services securely.
 """
 
 import asyncio
+
 from aiossh import AIOSSH, ProxyConfig, create_tunnel
 
 
@@ -39,7 +40,7 @@ async def main():
         print("   • Internal API     → 127.0.0.1:9000")
 
         # Use context manager for automatic cleanup
-        async with create_tunnel(bastion.connection, tunnel_config) as tunnel:
+        async with create_tunnel(bastion.connection, tunnel_config):
             print("\nAll tunnels are active!")
             print("   You can now use:")
             print("   - curl --socks5 127.0.0.1:1080 https://internal-service")

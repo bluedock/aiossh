@@ -20,6 +20,7 @@ from __future__ import annotations
 import unittest
 
 import asyncssh
+from fakes import FakeConnection
 
 from aiossh.core import AIOSSH
 from aiossh.core.session import FastSSHSession, SSHConfig
@@ -28,8 +29,6 @@ from aiossh.exceptions import (
     AIOSSHSecurityError,
     AIOSSHValidationError,
 )
-
-from fakes import FakeConnection
 
 
 class _StrictConnect:

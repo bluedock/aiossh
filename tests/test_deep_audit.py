@@ -9,7 +9,6 @@ import os
 import shlex
 import sys
 import tempfile
-import time
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,30 +19,43 @@ sys.path.insert(0, str(HERE / "_fake_asyncssh"))
 sys.path.insert(0, str(HERE.parent / "src"))
 
 import asyncssh
-from fakes import FakeConnection, FakeSFTP, FakeSFTPFile
+from fakes import FakeConnection, FakeSFTP
 
-from aiossh.security.validators import InputValidator
-from aiossh.exceptions import (
-    AIOSSHException, AIOSSHInvalidParameterError, AIOSSHSecurityError,
-    AIOSSHPoolExhaustedError, AIOSSHCommandTimeoutError, AIOSSHFileDiskFullError,
-    AIOSSHFileDownloadError, AIOSSHSessionExpiredError, AIOSSHSessionError,
-    AIOSSHConfigurationError, AIOSSHCommandError, AIOSSHFileTransferNotFoundError,
-    AIOSSHFileUploadError, AIOSSHRateLimitError, AIOSSHEncryptionError,
-    AIOSSHIntegrityError, AIOSSHConnectionError, AIOSSHConnectionTimeoutError,
-    AIOSSHConnectionRefusedError, AIOSSHHostKeyVerificationError,
-    AIOSSHAuthenticationError, AIOSSHInvalidCredentialsError,
-    AIOSSHFileTransferError, AIOSSHSessionNotFoundError,
-)
-from aiossh.core.session import FastSSHSession, SSHConfig
-from aiossh.core.pool import ConnectionPool, PoolConfig
-from aiossh.security import RateLimiter, SecurityConfig, SecureMemory
-from aiossh.security.file_manager import SessionFileManager
-from aiossh.integrations.docker import DockerExecSession
-from aiossh.transfer.scp import ParallelSCP
 from aiossh.core import AIOSSH
-from aiossh.utils.decorators import retry, timing
+from aiossh.core.pool import ConnectionPool, PoolConfig
+from aiossh.core.session import FastSSHSession, SSHConfig
+from aiossh.exceptions import (
+    AIOSSHAuthenticationError,
+    AIOSSHCommandError,
+    AIOSSHCommandTimeoutError,
+    AIOSSHConfigurationError,
+    AIOSSHConnectionError,
+    AIOSSHConnectionRefusedError,
+    AIOSSHConnectionTimeoutError,
+    AIOSSHEncryptionError,
+    AIOSSHException,
+    AIOSSHFileDiskFullError,
+    AIOSSHFileDownloadError,
+    AIOSSHFileTransferError,
+    AIOSSHFileTransferNotFoundError,
+    AIOSSHFileUploadError,
+    AIOSSHHostKeyVerificationError,
+    AIOSSHIntegrityError,
+    AIOSSHInvalidCredentialsError,
+    AIOSSHInvalidParameterError,
+    AIOSSHSecurityError,
+    AIOSSHSessionError,
+    AIOSSHSessionExpiredError,
+    AIOSSHSessionNotFoundError,
+)
+from aiossh.integrations.docker import DockerExecSession
 from aiossh.integrations.replay import SessionRecorder, SessionReplayer
 from aiossh.integrations.webhook import WebhookManager
+from aiossh.security import RateLimiter, SecureMemory, SecurityConfig
+from aiossh.security.file_manager import SessionFileManager
+from aiossh.security.validators import InputValidator
+from aiossh.transfer.scp import ParallelSCP
+from aiossh.utils.decorators import retry, timing
 
 
 def make_session(conn: FakeConnection, host="test.example.com", user="tester") -> FastSSHSession:
@@ -299,7 +311,7 @@ class TestValidatorEdgeCases(unittest.TestCase):
     def test_shell_escape_with_spaces(self):
         result = InputValidator.shell_escape("hello world")
         self.assertIn("hello world", result)
-        self.assertTrue(result.startswith("'") or result.startswith('"'))
+        self.assertTrue(result.startswith(("'", '"')))
 
     def test_shell_escape_with_single_quote(self):
         result = InputValidator.shell_escape("it's")
@@ -741,7 +753,7 @@ class TestAIOSSHCoreDeep(unittest.IsolatedAsyncioTestCase):
         conn = FakeConnection()
         with patch("asyncssh.connect", new=AsyncMock(return_value=conn)):
             async with client:
-                session = await client.connect(
+                await client.connect(
                     "host.example.com", "user", password="hunter2pass",
                     use_pool=False, session_name="test"
                 )
@@ -1232,7 +1244,7 @@ class TestConcurrency(unittest.IsolatedAsyncioTestCase):
                 pool.get_connection(cfg),
                 pool.get_connection(cfg),
             )
-        self.assertEqual(len(set(id(s) for s in sessions)), 3)
+        self.assertEqual(len({id(s) for s in sessions}), 3)
         self.assertEqual(pool.stats["total_connections"], 3)
 
 

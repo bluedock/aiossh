@@ -12,7 +12,7 @@ import hmac
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -93,7 +93,7 @@ class RateLimiter:
 class AuditLogger:
     """Simple audit logger (extendable, silent by default)."""
 
-    async def log(self, event: str, data: Optional[dict[str, Any]] = None) -> None:
+    async def log(self, event: str, data: dict[str, Any] | None = None) -> None:
         pass
 
 
@@ -119,4 +119,3 @@ class SecureMemory:
 
 class SecureChannel:
     """Placeholder for future secure channel support."""
-    pass
